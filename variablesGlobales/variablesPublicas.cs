@@ -1,7 +1,4 @@
-﻿using System;
-using System.Threading;
-
-namespace InkataBot.variablesGlobales
+﻿namespace InkataBot.variablesGlobales
 {
     internal class variablesPublicas
     {

@@ -1,13 +1,9 @@
 ﻿using DotNetWikiBot;
 using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
+using InkataBot.variablesGlobales;
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Site = DotNetWikiBot.Site;
 
 namespace InkataBot.slash
@@ -77,16 +73,19 @@ namespace InkataBot.slash
                     string servidorRespuesta = await client.GetStringAsync(apiUrl);
                     var resultado = JsonConvert.DeserializeObject<RootObject>(servidorRespuesta);
                     List<Paginas> paginasEs = resultado.query.allpages;
+                    token.ThrowIfCancellationRequested();
 
                     apiUrl = $"{enWiki}?{paginasLista}";
                     servidorRespuesta = await client.GetStringAsync(apiUrl);
                     resultado = JsonConvert.DeserializeObject<RootObject>(servidorRespuesta);
                     List<Paginas> paginasEn = resultado.query.allpages;
+                    token.ThrowIfCancellationRequested();
 
                     apiUrl = $"{frWiki}?{paginasLista}";
                     servidorRespuesta = await client.GetStringAsync(apiUrl);
                     resultado = JsonConvert.DeserializeObject<RootObject>(servidorRespuesta);
                     List<Paginas> paginasFr = resultado.query.allpages;
+                    token.ThrowIfCancellationRequested();
 
                     // Recopilar esWiki
                     await EnviarMensajeProcesoInterwiki(ctx, "Analizando Inkipedia ES...");

@@ -5,15 +5,8 @@ using DSharpPlus.EventArgs;
 using DSharpPlus.SlashCommands;
 using InkataBot.commands;
 using InkataBot.config;
-using InkataBot.errores;
 using InkataBot.slash;
 using InkataBot.variablesGlobales;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Formats.Asn1;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace InkataBot
 {
