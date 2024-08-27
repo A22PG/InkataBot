@@ -21,8 +21,8 @@ namespace InkataBot.slash
                 variablesGlobales.variablesPublicas.interwikiProcesando = true;
 
                 var cts = new CancellationTokenSource();
-                variablesGlobales.variablesPublicas.cancellationToken = cts; // Guarda el token en variablesPublicas para detenerlo en caso de ser necesario
-                var token = variablesGlobales.variablesPublicas.cancellationToken.Token;
+                variablesGlobales.variablesPublicas.cancellationInterwiki = cts; // Guarda el token en variablesPublicas para detenerlo en caso de ser necesario
+                var token = variablesGlobales.variablesPublicas.cancellationInterwiki.Token;
 
                 response = ":map: Has iniciado un proceso interwiki.";
                 await EnviarMensajeProcesoInterwiki(ctx, $":airplane_departure: {ctx.User.Mention} ha iniciado un proceso interwiki.");
@@ -42,7 +42,7 @@ namespace InkataBot.slash
                 finally
                 {
                     variablesGlobales.variablesPublicas.interwikiProcesando = false;
-                    variablesGlobales.variablesPublicas.cancellationToken = null;
+                    variablesGlobales.variablesPublicas.cancellationInterwiki = null;
                 }
             }
             else
@@ -56,306 +56,127 @@ namespace InkataBot.slash
 
         private async Task RealizarProcesoInterwiki(InteractionContext ctx, CancellationToken token)
         {
-            string esWiki = "https://es.splatoonwiki.org/w/api.php"; // URL de es.inkipedia.org
-            string enWiki = "https://splatoonwiki.org/w/api.php"; // URL de inkipedia.org
-            string frWiki = "https://fr.splatoonwiki.org/w/api.php"; // URL de fr.inkipedia.org
+            VariablesPrivadas contrasena = new VariablesPrivadas();
+
+            string[] wikiUrls = {
+                "https://es.splatoonwiki.org/w/api.php",
+                "https://splatoonwiki.org/w/api.php",
+                "https://fr.splatoonwiki.org/w/api.php"
+            };
+            string[] wikiSites = {
+                "https://es.splatoonwiki.org",
+                "https://splatoonwiki.org",
+                "https://fr.splatoonwiki.org"
+            };
+            string[] wikiLangs = {
+                "es",
+                "en",
+                "fr"
+            };
+            string[] wikiCreds = {
+                contrasena.ContrasenaEsWiki,
+                contrasena.ContrasenaEnWiki,
+                contrasena.ContrasenaFrWiki
+            };
+            string[] botNames = {
+                "InkataBot",
+                "InkataBot",
+                "InkataBot"
+            };
+            string[] editMessages = {
+        $"Edición automatizada autorizada por {ctx.User.Username}#{ctx.User.Discriminator} añadiendo interwikis",
+        $"Bot edit authorized by {ctx.User.Username}#{ctx.User.Discriminator} adding interwikis",
+        $"Édition automatique autorisée par {ctx.User.Username}#{ctx.User.Discriminator} ajoutant des interwikis"
+    };
+
             using (HttpClient client = new HttpClient())
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
+                token.ThrowIfCancellationRequested();
                 try
                 {
-                    VariablesPrivadas contrasena = new VariablesPrivadas();
-                    Site esWikiLista = new Site("https://es.splatoonwiki.org", "InkataBot", contrasena.ContrasenaEsWiki);
-                    Site enWikiLista = new Site("https://splatoonwiki.org", "InkataBot", contrasena.ContrasenaEnWiki);
-                    Site frWikiLista = new Site("https://fr.splatoonwiki.org", "InkataBot", contrasena.ContrasenaFrWiki);
+                    List<Site> sites = new List<Site>();
+                    for (int i = 0; i < wikiSites.Length; i++)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        sites.Add(new Site(wikiSites[i], botNames[i], wikiCreds[i]));
+                    }
+
                     string paginasLista = "action=query&format=json&list=allpages&aplimit=max";
-                    string apiUrl = $"{esWiki}?{paginasLista}";
-                    string servidorRespuesta = await client.GetStringAsync(apiUrl);
-                    var resultado = JsonConvert.DeserializeObject<RootObject>(servidorRespuesta);
-                    List<Paginas> paginasEs = resultado.query.allpages;
-                    token.ThrowIfCancellationRequested();
+                    List<List<Paginas>> allPaginas = new List<List<Paginas>>();
 
-                    apiUrl = $"{enWiki}?{paginasLista}";
-                    servidorRespuesta = await client.GetStringAsync(apiUrl);
-                    resultado = JsonConvert.DeserializeObject<RootObject>(servidorRespuesta);
-                    List<Paginas> paginasEn = resultado.query.allpages;
-                    token.ThrowIfCancellationRequested();
-
-                    apiUrl = $"{frWiki}?{paginasLista}";
-                    servidorRespuesta = await client.GetStringAsync(apiUrl);
-                    resultado = JsonConvert.DeserializeObject<RootObject>(servidorRespuesta);
-                    List<Paginas> paginasFr = resultado.query.allpages;
-                    token.ThrowIfCancellationRequested();
-
-                    // Recopilar esWiki
-                    await EnviarMensajeProcesoInterwiki(ctx, "Analizando Inkipedia ES...");
-                    foreach (var pagina in paginasEs)
+                    // Obtener todas las páginas de cada wiki
+                    for (int i = 0; i < wikiUrls.Length; i++)
                     {
+                        string apiUrl = $"{wikiUrls[i]}?{paginasLista}";
+                        string servidorRespuesta = await client.GetStringAsync(apiUrl);
+                        var resultado = JsonConvert.DeserializeObject<RootObject>(servidorRespuesta);
+                        allPaginas.Add(resultado.query.allpages);
                         token.ThrowIfCancellationRequested();
-                        Page pES = new Page(esWikiLista, pagina.title);
-                        List<string> interwikis = pES.GetInterLanguageLinks();
+                    }
 
-                        foreach (var interwiki in interwikis)
+                    // Procesar interwikis
+                    for (int i = 0; i < allPaginas.Count; i++)
+                    {
+                        await EnviarMensajeProcesoInterwiki(ctx, $"Analizando Inkipedia {wikiLangs[i].ToUpper()}...");
+                        foreach (var pagina in allPaginas[i])
                         {
-                            Site esWikiConexion = new Site("https://es.splatoonwiki.org", "InkataBot", contrasena.ContrasenaEsWiki);
-                            if (interwiki.StartsWith("en:"))
-                            {
-                                token.ThrowIfCancellationRequested();
-                                Site enWikiConexion = new Site("https://splatoonwiki.org", "InkataBot", contrasena.ContrasenaEnWiki);
-                                string eSinPrefEn = interwiki.Replace("en:", "");
-                                Page pEn = new Page(enWikiConexion, eSinPrefEn);
-                                try
-                                {
-                                    pEn.Load();
-                                    if (pEn.text != "" && !pEn.text.Contains($"[[es:{pagina.title}]]"))
-                                    {
-                                        string texto = pEn.text + $"\n[[es:{pagina.title}]]";
-                                        token.ThrowIfCancellationRequested();
-                                        pEn.Save(texto, $"Bot edit authorized by {ctx.User.Username}#{ctx.User.Discriminator} adding interwikis", true);
-                                    }
-                                    else if (pEn.text != "" && pEn.text.Contains($"[[es:"))
-                                    {
-                                        string texto = pEn.text;
-                                        string patron = @"\[\[es:(.*?)\]\]";
-                                        Match match = Regex.Match(texto, patron);
+                            token.ThrowIfCancellationRequested();
+                            Page currentPage = new Page(sites[i], pagina.title);
+                            List<string> interwikis = currentPage.GetInterLanguageLinks();
 
-                                        if (match.Success)
+                            foreach (var interwiki in interwikis)
+                            {
+                                for (int j = 0; j < wikiLangs.Length; j++)
+                                {
+                                    if (interwiki.StartsWith($"{wikiLangs[j]}:") && i != j)
+                                    {
+                                        token.ThrowIfCancellationRequested();
+                                        Page targetPage = new Page(sites[j], interwiki.Replace($"{wikiLangs[j]}:", ""));
+                                        try
                                         {
-                                            string antiguoEnlaceDesconocido = match.Groups[0].Value;
-                                            if (!antiguoEnlaceDesconocido.Equals($"[[es:{pagina.title}]]", StringComparison.Ordinal))
+                                            token.ThrowIfCancellationRequested();
+                                            targetPage.Load();
+
+                                            // Verificar si la página existe
+                                            if (targetPage.Exists())
                                             {
-                                                texto = texto.Replace(antiguoEnlaceDesconocido, $"[[es:{pagina.title}]]");
-                                                token.ThrowIfCancellationRequested();
-                                                pEn.Save(texto, $"Bot edit authorized by {ctx.User.Username}#{ctx.User.Discriminator} updating interwikis", true);
+                                                string correctLangLink = $"[[{wikiLangs[i]}:{pagina.title}]]";  // El enlace interwiki que debería estar
+                                                string incorrectLangLinkPattern = $@"\[\[{wikiLangs[i]}:([^\]]+)\]\]"; // Patrón para buscar cualquier interwiki en ese idioma
+
+                                                // Comprobar si hay un interwiki en ese idioma que no sea el correcto
+                                                var match = System.Text.RegularExpressions.Regex.Match(targetPage.text, incorrectLangLinkPattern);
+
+                                                if (match.Success)
+                                                {
+                                                    string currentLangLink = match.Value;
+
+                                                    if (currentLangLink != correctLangLink)
+                                                    {
+                                                        // Reemplazar el interwiki incorrecto por el correcto
+                                                        string newText = targetPage.text.Replace(currentLangLink, correctLangLink);
+                                                        token.ThrowIfCancellationRequested();
+                                                        targetPage.Save(newText, editMessages[j], true);
+                                                    }
+                                                }
+                                                else if (!targetPage.text.Contains(correctLangLink))
+                                                {
+                                                    // Añadir el interwiki correcto si no está presente
+                                                    string newText = targetPage.text + $"\n{correctLangLink}";
+                                                    token.ThrowIfCancellationRequested();
+                                                    targetPage.Save(newText, editMessages[j], true);
+                                                }
                                             }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Console.WriteLine(ex);
                                         }
                                     }
                                 }
-                                catch (Exception ex) { Console.WriteLine(ex); }
                             }
-                            else if (interwiki.StartsWith("fr:"))
-                            {
-                                token.ThrowIfCancellationRequested();
-                                Site frWikiConexion = new Site("https://fr.splatoonwiki.org", "InkataBot", contrasena.ContrasenaFrWiki);
-                                string eSinPrefFr = interwiki.Replace("fr:", "");
-                                Page pFr = new Page(frWikiConexion, eSinPrefFr);
-                                try
-                                {
-                                    pFr.Load();
-
-                                    if (pFr.text != "" && !pFr.text.Contains($"[[es:{pagina.title}]]"))
-                                    {
-                                        string texto = pFr.text + $"\n[[es:{pagina.title}]]";
-                                        token.ThrowIfCancellationRequested();
-                                        pFr.Save(texto, $"Modification par un robot ajoutant à jour les interwikis autorisé par {ctx.User.Username}#{ctx.User.Discriminator}", true);
-                                    }
-                                    else if (pFr.text.Contains($"[[es:"))
-                                    {
-                                        string texto = pFr.text;
-                                        string patron = @"\[\[es:(.*?)\]\]";
-                                        Match match = Regex.Match(texto, patron);
-
-                                        if (match.Success)
-                                        {
-                                            string antiguoEnlaceDesconocido = match.Groups[0].Value;
-
-                                            if (!antiguoEnlaceDesconocido.Equals($"[[es:{pagina.title}]]", StringComparison.Ordinal))
-                                            {
-                                                texto = texto.Replace(antiguoEnlaceDesconocido, $"[[es:{pagina.title}]]");
-                                                token.ThrowIfCancellationRequested();
-                                                pFr.Save(texto, $"Modification par un robot mettant à jour les interwikis autorisé par {ctx.User.Username}#{ctx.User.Discriminator}", true);
-                                            }
-                                        }
-                                    }
-                                }
-                                catch (Exception ex) { Console.WriteLine(ex); }
-
-                            }
-                            // En este espacio van nuevas wikis si se llegara a dar el caso de aumentar el número de idiomas
                         }
                     }
-                    await EnviarMensajeProcesoInterwiki(ctx, "Inkipedia ES analizada");
-
-                    // Recopilar enWiki
-                    await EnviarMensajeProcesoInterwiki(ctx, "Analizando Inkipedia...");
-                    foreach (var pagina in paginasEn)
-                    {
-                        token.ThrowIfCancellationRequested();
-                        Page pEN = new Page(enWikiLista, pagina.title);
-                        List<string> interwikis = pEN.GetInterLanguageLinks();
-
-                        foreach (var interwiki in interwikis)
-                        {
-                            Site enWikiConexion = new Site("https://splatoonwiki.org", "InkataBot", contrasena.ContrasenaEnWiki);
-                            if (interwiki.StartsWith("es:"))
-                            {
-                                token.ThrowIfCancellationRequested();
-                                Site esWikiConexion = new Site("https://es.splatoonwiki.org", "InkataBot", contrasena.ContrasenaEsWiki);
-                                string eSinPrefEs = interwiki.Replace("es:", "");
-                                Page pEs = new Page(esWikiConexion, eSinPrefEs);
-                                try
-                                {
-                                    pEs.Load();
-
-                                    if (pEs.text != "" && !pEs.text.Contains($"[[en:{pagina.title}]]"))
-                                    {
-                                        string texto = pEs.text + $"\n[[en:{pagina.title}]]";
-                                        token.ThrowIfCancellationRequested();
-                                        pEs.Save(texto, $"Edición de bot autorizada por {ctx.User.Username}#{ctx.User.Discriminator} añadiendo interwikis", true);
-                                    }
-                                    else if (pEs.text != "" && pEs.text.Contains($"[[en:"))
-                                    {
-                                        string texto = pEs.text;
-                                        string patron = @"\[\[en:(.*?)\]\]";
-                                        Match match = Regex.Match(texto, patron);
-
-                                        if (match.Success)
-                                        {
-                                            string antiguoEnlaceDesconocido = match.Groups[0].Value;
-                                            if (!antiguoEnlaceDesconocido.Equals($"[[en:{pagina.title}]]", StringComparison.Ordinal))
-                                            {
-                                                texto = texto.Replace(antiguoEnlaceDesconocido, $"[[en:{pagina.title}]]");
-                                                token.ThrowIfCancellationRequested();
-                                                pEs.Save(texto, $"Edición de bot autorizada por {ctx.User.Username}#{ctx.User.Discriminator} actualizando interwikis", true);
-                                            }
-                                        }
-                                    }
-                                }
-                                catch (Exception ex) { Console.WriteLine(ex); }
-                            }
-                            else if (interwiki.StartsWith("fr:"))
-                            {
-                                token.ThrowIfCancellationRequested();
-                                Site frWikiConexion = new Site("https://fr.splatoonwiki.org", "InkataBot", contrasena.ContrasenaFrWiki);
-                                string eSinPrefFr = interwiki.Replace("fr:", "");
-                                Page pFr = new Page(frWikiConexion, eSinPrefFr);
-                                try
-                                {
-                                    pFr.Load();
-
-                                    if (pFr.text != "" && !pFr.text.Contains($"[[en:{pagina.title}]]"))
-                                    {
-                                        string texto = pFr.text + $"\n[[en:{pagina.title}]]";
-                                        token.ThrowIfCancellationRequested();
-                                        pFr.Save(texto, $"Modification par un robot ajoutant à jour les interwikis autorisé par {ctx.User.Username}#{ctx.User.Discriminator}", true);
-                                    }
-                                    else if (pFr.text.Contains($"[[en:"))
-                                    {
-                                        string texto = pFr.text;
-                                        string patron = @"\[\[en:(.*?)\]\]";
-                                        Match match = Regex.Match(texto, patron);
-
-                                        if (match.Success)
-                                        {
-                                            string antiguoEnlaceDesconocido = match.Groups[0].Value;
-
-                                            if (!antiguoEnlaceDesconocido.Equals($"[[en:{pagina.title}]]", StringComparison.Ordinal))
-                                            {
-                                                texto = texto.Replace(antiguoEnlaceDesconocido, $"[[en:{pagina.title}]]");
-                                                token.ThrowIfCancellationRequested();
-                                                pFr.Save(texto, $"Modification par un robot mettant à jour les interwikis autorisé par {ctx.User.Username}#{ctx.User.Discriminator}", true);
-                                            }
-                                        }
-                                    }
-                                }
-                                catch (Exception ex) { Console.WriteLine(ex); }
-
-
-                            }
-                            // En este espacio van nuevas wikis si se llegara a dar el caso de aumentar el número de idiomas
-                        }
-                    }
-                    await EnviarMensajeProcesoInterwiki(ctx, "Inkipedia analizada");
-
-                    // Recopilar frWiki
-                    await EnviarMensajeProcesoInterwiki(ctx, "Analizando Inkipédia...");
-                    foreach (var pagina in paginasEs)
-                    {
-                        token.ThrowIfCancellationRequested();
-                        Page pFR = new Page(frWikiLista, pagina.title);
-                        List<string> interwikis = pFR.GetInterLanguageLinks();
-
-                        foreach (var interwiki in interwikis)
-                        {
-                            Site frWikiConexion = new Site("https://fr.splatoonwiki.org", "InkataBot", contrasena.ContrasenaFrWiki);
-                            if (interwiki.StartsWith("en:"))
-                            {
-                                token.ThrowIfCancellationRequested();
-                                Site enWikiConexion = new Site("https://splatoonwiki.org", "InkataBot", contrasena.ContrasenaEnWiki);
-                                string eSinPrefEn = interwiki.Replace("en:", "");
-                                Page pEn = new Page(enWikiConexion, eSinPrefEn);
-                                try
-                                {
-                                    pEn.Load();
-
-                                    if (pEn.text != "" && !pEn.text.Contains($"[[fr:{pagina.title}]]"))
-                                    {
-                                        string texto = pEn.text + $"\n[[fr:{pagina.title}]]";
-                                        token.ThrowIfCancellationRequested();
-                                        pEn.Save(texto, $"Bot edit authorized by {ctx.User.Username}#{ctx.User.Discriminator} with InkataBot adding interwikis", true);
-                                    }
-                                    else if (pEn.text != "" && pEn.text.Contains($"[[fr:"))
-                                    {
-                                        string texto = pEn.text;
-                                        string patron = @"\[\[fr:(.*?)\]\]";
-                                        Match match = Regex.Match(texto, patron);
-
-                                        if (match.Success)
-                                        {
-                                            string antiguoEnlaceDesconocido = match.Groups[0].Value;
-                                            if (!antiguoEnlaceDesconocido.Equals($"[[fr:{pagina.title}]]", StringComparison.Ordinal))
-                                            {
-                                                texto = texto.Replace(antiguoEnlaceDesconocido, $"[[fr:{pagina.title}]]");
-                                                token.ThrowIfCancellationRequested();
-                                                pEn.Save(texto, $"Bot edit authorized by {ctx.User.Username}#{ctx.User.Discriminator} with InkataBot adding interwikis", true);
-                                            }
-                                        }
-                                    }
-                                }
-                                catch (Exception ex) { Console.WriteLine(ex); }
-                            }
-                            else if (interwiki.StartsWith("es:"))
-                            {
-                                token.ThrowIfCancellationRequested();
-                                Site esWikiConexion = new Site("https://es.splatoonwiki.org", "InkataBot", contrasena.ContrasenaEsWiki);
-                                string eSinPrefFr = interwiki.Replace("es:", "");
-                                Page pEs = new Page(esWikiConexion, eSinPrefFr);
-                                try
-                                {
-                                    pEs.Load();
-
-                                    if (pEs.text != "" && !pEs.text.Contains($"[[fr:{pagina.title}]]"))
-                                    {
-                                        string texto = pEs.text + $"\n[[fr:{pagina.title}]]";
-                                        token.ThrowIfCancellationRequested();
-                                        pEs.Save(texto, $"Edición de bot autorizada por {ctx.User.Username}#{ctx.User.Discriminator} añadiendo interwikis", true);
-                                    }
-                                    else if (pEs.text.Contains($"[[fr:"))
-                                    {
-                                        string texto = pEs.text;
-                                        string patron = @"\[\[fr:(.*?)\]\]";
-                                        Match match = Regex.Match(texto, patron);
-
-                                        if (match.Success)
-                                        {
-                                            string antiguoEnlaceDesconocido = match.Groups[0].Value;
-                                            if (!antiguoEnlaceDesconocido.Equals($"[[fr:{pagina.title}]]", StringComparison.Ordinal))
-                                            {
-                                                texto = texto.Replace(antiguoEnlaceDesconocido, $"[[fr:{pagina.title}]]");
-                                                token.ThrowIfCancellationRequested();
-                                                pEs.Save(texto, $"Edición de bot autorizada por {ctx.User.Username}#{ctx.User.Discriminator} actualizando interwikis", true);
-                                            }
-                                        }
-                                    }
-                                }
-                                catch (Exception ex) { Console.WriteLine(ex); }
-                            }
-                            // En este espacio van nuevas wikis si se llegara a dar el caso de aumentar el número de idiomas
-                        }
-                    }
-                    await EnviarMensajeProcesoInterwiki(ctx, "Inkipédia analizada...");
-
-                    // En este espacio van nuevas wikis si se llegara a dar el caso de aumentar el número de idiomas
 
                     await EnviarMensajeProcesoInterwiki(ctx, ":airplane_arriving: El proceso de interwiki ha sido completado exitosamente.");
                 }

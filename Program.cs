@@ -66,7 +66,7 @@ namespace InkataBot
         private static async Task Client_GuildMemberAdded(DiscordClient sender, GuildMemberAddEventArgs args)
         {
             var guild = args.Guild;
-            var channel = guild.GetChannel(1142804763424071692);
+            var channel = guild.GetChannel(variablesPublicas.mensajeBienvenidaCanal);
 
 
             if (channel != null)
@@ -88,7 +88,7 @@ namespace InkataBot
 
                 await channel.SendMessageAsync(message);
 
-                await args.Member.GrantRoleAsync(guild.GetRole(1168861186842955816));
+                await args.Member.GrantRoleAsync(guild.GetRole(variablesPublicas.rolUsuario));
             }
         }
     }

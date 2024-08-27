@@ -13,10 +13,10 @@ namespace InkataBot.commands
         {
             if (variablesPublicas.interwikiProcesando)
             {
-                if (variablesPublicas.cancellationToken != null)
+                if (variablesPublicas.cancellationInterwiki != null)
                 {
-                    variablesPublicas.cancellationToken.Cancel(); // Cancela el token
-                    variablesPublicas.cancellationToken = null; // Resetea el token para evitar cancelaciones posteriores
+                    variablesPublicas.cancellationInterwiki.Cancel(); // Cancela el token
+                    variablesPublicas.cancellationInterwiki = null; // Resetea el token para evitar cancelaciones posteriores
                     variablesPublicas.interwikiProcesando = false;
                 }
             }
