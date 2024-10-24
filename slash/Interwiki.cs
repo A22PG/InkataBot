@@ -59,36 +59,41 @@ namespace InkataBot.slash
         {
             VariablesPrivadas contrasena = new VariablesPrivadas();
 
-            string[] wikiUrls = {
-        "https://es.splatoonwiki.org/w/api.php",
-        "https://splatoonwiki.org/w/api.php",
-        "https://fr.splatoonwiki.org/w/api.php"
-    };
+        string[] wikiUrls = {
+            "https://es.splatoonwiki.org/w/api.php",
+            "https://splatoonwiki.org/w/api.php",
+            "https://fr.splatoonwiki.org/w/api.php"
+        };
             string[] wikiSites = {
-        "https://es.splatoonwiki.org",
-        "https://splatoonwiki.org",
-        "https://fr.splatoonwiki.org"
-    };
+            "https://es.splatoonwiki.org",
+            "https://splatoonwiki.org",
+            "https://fr.splatoonwiki.org"
+        };
             string[] wikiLangs = {
-        "es",
-        "en",
-        "fr"
-    };
+            "es",
+            "en",
+            "fr"
+        };
             string[] wikiCreds = {
-        contrasena.ContrasenaEsWiki,
-        contrasena.ContrasenaEnWiki,
-        contrasena.ContrasenaFrWiki
-    };
+            contrasena.ContrasenaEsWiki,
+            contrasena.ContrasenaEnWiki,
+            contrasena.ContrasenaFrWiki
+        };
             string[] botNames = {
-        "InkataBot",
-        "InkataBot",
-        "InkataBot"
-    };
-            string[] editMessages = {
-        $"Edición automatizada autorizada por {ctx.User.Username}#{ctx.User.Discriminator} añadiendo interwikis",
-        $"Bot edit authorized by {ctx.User.Username}#{ctx.User.Discriminator} adding interwikis",
-        $"Édition automatique autorisée par {ctx.User.Username}#{ctx.User.Discriminator} ajoutant des interwikis"
-    };
+            "InkataBot",
+            "InkataBot",
+            "InkataBot"
+        };
+        string[] editMessages = {
+            $"Edición de bot autorizada por {ctx.User.Username}#{ctx.User.Discriminator} añadiendo interwikis",
+            $"Bot edit authorized by {ctx.User.Username}#{ctx.User.Discriminator} adding interwikis",
+            $"Bot édition autorisée par {ctx.User.Username}#{ctx.User.Discriminator} ajoutant des interwikis"
+        };
+            string[] nombreWiki = {
+                "Inkipedia ES",
+                "Inkipedia",
+                "Inkipédia"
+        };
 
             using (HttpClient client = new HttpClient())
             {
@@ -120,7 +125,7 @@ namespace InkataBot.slash
                     {
                         variablesPublicas.NoCancellationTokenUntilStart = false;
                         token.ThrowIfCancellationRequested();
-                        await EnviarMensajeProcesoInterwiki(ctx, $"Analizando Inkipedia {wikiLangs[i].ToUpper()}...");
+                        await EnviarMensajeProcesoInterwiki(ctx, $"Analizando {nombreWiki[i]}...");
                         
 
                         for (int j = 0; j < allPaginas[i].Count; j++)
