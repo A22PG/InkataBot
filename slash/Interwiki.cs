@@ -3,6 +3,7 @@ using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
 using InkataBot.variablesGlobales;
 using Newtonsoft.Json;
+using System.Net;
 using System.Text.RegularExpressions;
 using Site = DotNetWikiBot.Site;
 
@@ -59,30 +60,30 @@ namespace InkataBot.slash
             VariablesPrivadas contrasena = new VariablesPrivadas();
 
             string[] wikiUrls = {
-                "https://es.splatoonwiki.org/w/api.php",
-                "https://splatoonwiki.org/w/api.php",
-                "https://fr.splatoonwiki.org/w/api.php"
-            };
+        "https://es.splatoonwiki.org/w/api.php",
+        "https://splatoonwiki.org/w/api.php",
+        "https://fr.splatoonwiki.org/w/api.php"
+    };
             string[] wikiSites = {
-                "https://es.splatoonwiki.org",
-                "https://splatoonwiki.org",
-                "https://fr.splatoonwiki.org"
-            };
+        "https://es.splatoonwiki.org",
+        "https://splatoonwiki.org",
+        "https://fr.splatoonwiki.org"
+    };
             string[] wikiLangs = {
-                "es",
-                "en",
-                "fr"
-            };
+        "es",
+        "en",
+        "fr"
+    };
             string[] wikiCreds = {
-                contrasena.ContrasenaEsWiki,
-                contrasena.ContrasenaEnWiki,
-                contrasena.ContrasenaFrWiki
-            };
+        contrasena.ContrasenaEsWiki,
+        contrasena.ContrasenaEnWiki,
+        contrasena.ContrasenaFrWiki
+    };
             string[] botNames = {
-                "InkataBot",
-                "InkataBot",
-                "InkataBot"
-            };
+        "InkataBot",
+        "InkataBot",
+        "InkataBot"
+    };
             string[] editMessages = {
         $"Edición automatizada autorizada por {ctx.User.Username}#{ctx.User.Discriminator} añadiendo interwikis",
         $"Bot edit authorized by {ctx.User.Username}#{ctx.User.Discriminator} adding interwikis",
@@ -92,13 +93,13 @@ namespace InkataBot.slash
             using (HttpClient client = new HttpClient())
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
-                token.ThrowIfCancellationRequested();
+                int reintentos = 0;
+
                 try
                 {
                     List<Site> sites = new List<Site>();
                     for (int i = 0; i < wikiSites.Length; i++)
                     {
-                        token.ThrowIfCancellationRequested();
                         sites.Add(new Site(wikiSites[i], botNames[i], wikiCreds[i]));
                     }
 
@@ -112,65 +113,81 @@ namespace InkataBot.slash
                         string servidorRespuesta = await client.GetStringAsync(apiUrl);
                         var resultado = JsonConvert.DeserializeObject<RootObject>(servidorRespuesta);
                         allPaginas.Add(resultado.query.allpages);
-                        token.ThrowIfCancellationRequested();
                     }
 
                     // Procesar interwikis
                     for (int i = 0; i < allPaginas.Count; i++)
                     {
+                        variablesPublicas.NoCancellationTokenUntilStart = false;
+                        token.ThrowIfCancellationRequested();
                         await EnviarMensajeProcesoInterwiki(ctx, $"Analizando Inkipedia {wikiLangs[i].ToUpper()}...");
-                        foreach (var pagina in allPaginas[i])
+                        
+
+                        for (int j = 0; j < allPaginas[i].Count; j++)
                         {
-                            token.ThrowIfCancellationRequested();
+                            var pagina = allPaginas[i][j];
+
                             Page currentPage = new Page(sites[i], pagina.title);
                             List<string> interwikis = currentPage.GetInterLanguageLinks();
 
                             foreach (var interwiki in interwikis)
                             {
-                                for (int j = 0; j < wikiLangs.Length; j++)
+                                for (int k = 0; k < wikiLangs.Length; k++)
                                 {
-                                    if (interwiki.StartsWith($"{wikiLangs[j]}:") && i != j)
+                                    if (interwiki.StartsWith($"{wikiLangs[k]}:") && i != k)
                                     {
-                                        token.ThrowIfCancellationRequested();
-                                        Page targetPage = new Page(sites[j], interwiki.Replace($"{wikiLangs[j]}:", ""));
-                                        try
+                                        bool intentoExitoso = false;
+                                        while (!intentoExitoso && reintentos < 5)
                                         {
-                                            token.ThrowIfCancellationRequested();
-                                            targetPage.Load();
-
-                                            // Verificar si la página existe
-                                            if (targetPage.Exists())
+                                            try
                                             {
-                                                string correctLangLink = $"[[{wikiLangs[i]}:{pagina.title}]]";  // El enlace interwiki que debería estar
-                                                string incorrectLangLinkPattern = $@"\[\[{wikiLangs[i]}:([^\]]+)\]\]"; // Patrón para buscar cualquier interwiki en ese idioma
+                                                token.ThrowIfCancellationRequested();
+                                                Page targetPage = new Page(sites[k], interwiki.Replace($"{wikiLangs[k]}:", ""));
+                                                targetPage.Load();
 
-                                                // Comprobar si hay un interwiki en ese idioma que no sea el correcto
-                                                var match = System.Text.RegularExpressions.Regex.Match(targetPage.text, incorrectLangLinkPattern);
-
-                                                if (match.Success)
+                                                // Verificar si la página existe
+                                                if (targetPage.Exists())
                                                 {
-                                                    string currentLangLink = match.Value;
+                                                    string correctLangLink = $"[[{wikiLangs[i]}:{pagina.title}]]";  // El enlace interwiki correcto
+                                                    string incorrectLangLinkPattern = $@"\[\[{wikiLangs[i]}:([^\]]+)\]\]"; // Patrón para buscar interwikis incorrectos
 
-                                                    if (currentLangLink != correctLangLink)
+                                                    // Comprobar si hay un interwiki en ese idioma que no sea el correcto
+                                                    var match = Regex.Match(targetPage.text, incorrectLangLinkPattern);
+
+                                                    if (match.Success)
                                                     {
-                                                        // Reemplazar el interwiki incorrecto por el correcto
-                                                        string newText = targetPage.text.Replace(currentLangLink, correctLangLink);
+                                                        string currentLangLink = match.Value;
+
+                                                        if (currentLangLink != correctLangLink)
+                                                        {
+                                                            // Reemplazar el interwiki incorrecto por el correcto
+                                                            string newText = targetPage.text.Replace(currentLangLink, correctLangLink);
+                                                            token.ThrowIfCancellationRequested();
+                                                            targetPage.Save(newText, editMessages[k], true);
+                                                        }
+                                                    }
+                                                    else if (!targetPage.text.Contains(correctLangLink))
+                                                    {
+                                                        // Añadir el interwiki correcto si no está presente
+                                                        string newText = targetPage.text + $"\n{correctLangLink}";
                                                         token.ThrowIfCancellationRequested();
-                                                        targetPage.Save(newText, editMessages[j], true);
+                                                        targetPage.Save(newText, editMessages[k], true);
                                                     }
                                                 }
-                                                else if (!targetPage.text.Contains(correctLangLink))
+                                                intentoExitoso = true; // Si no hubo excepción, marca como exitoso
+                                                reintentos = 0; // Reiniciar los reintentos
+                                            }
+                                            catch (Exception ex) when (ex is DotNetWikiBot.WikiBotException wikiEx && wikiEx.Message.Contains("Login failed") || ex is WebException webEx && webEx.Response is HttpWebResponse httpResponse && httpResponse.StatusCode == HttpStatusCode.InternalServerError)
+                                            {
+                                                reintentos++;
+                                                await EnviarMensajeProcesoInterwiki(ctx, $":warning: Error en el servidor. Reintentando... ({reintentos}/5)");
+                                                await Task.Delay(5000);
+                                                if (reintentos >= 5)
                                                 {
-                                                    // Añadir el interwiki correcto si no está presente
-                                                    string newText = targetPage.text + $"\n{correctLangLink}";
-                                                    token.ThrowIfCancellationRequested();
-                                                    targetPage.Save(newText, editMessages[j], true);
+                                                    await EnviarMensajeProcesoInterwiki(ctx, ":octagonal_sign: El proceso interwiki fue cancelado después de cinco reintentos fallidos.");
+                                                    throw new OperationCanceledException(); // Cancelar todo el proceso
                                                 }
                                             }
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Console.WriteLine(ex);
                                         }
                                     }
                                 }
@@ -188,12 +205,15 @@ namespace InkataBot.slash
                 {
                     errores.error errorInstance = new errores.error(Program.Client);
                     response = errorInstance.errorCommand(ctx.Member.Username, ex, "interwiki");
+                    await EnviarMensajeProcesoInterwiki(ctx, ":knot: Se ha producido un error desconocido; el proceso interwiki ha sido cancelado.");
                 }
                 finally
                 {
                     variablesGlobales.variablesPublicas.interwikiProcesando = false;
                     await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
                         .WithContent(response));
+                    reintentos = 0;
+                    variablesPublicas.NoCancellationTokenUntilStart = true;
                 }
             }
         }

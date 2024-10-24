@@ -15,6 +15,10 @@ namespace InkataBot.commands
             {
                 if (variablesPublicas.cancellationInterwiki != null)
                 {
+                    while (variablesPublicas.NoCancellationTokenUntilStart == true)
+                    {
+                        await Task.Delay(10);
+                    }
                     variablesPublicas.cancellationInterwiki.Cancel(); // Cancela el token
                     variablesPublicas.cancellationInterwiki = null; // Resetea el token para evitar cancelaciones posteriores
                     variablesPublicas.interwikiProcesando = false;

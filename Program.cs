@@ -5,6 +5,7 @@ using DSharpPlus.EventArgs;
 using DSharpPlus.SlashCommands;
 using InkataBot.commands;
 using InkataBot.config;
+using InkataBot.services;
 using InkataBot.slash;
 using InkataBot.variablesGlobales;
 

@@ -15,5 +15,6 @@
 
         //Administración
         public static CancellationTokenSource cancellationInterwiki { get; internal set; }
+        public static Boolean NoCancellationTokenUntilStart { get; internal set; }
     }
 }
