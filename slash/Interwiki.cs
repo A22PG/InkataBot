@@ -48,7 +48,7 @@ namespace InkataBot.slash
             }
             else
             {
-                response = ":pause_button: Este comando está en uso por otro usuario. Por favor, espere unos minutos antes de intentarlo nuevamente.";
+                response = ":knot: Este comando está en uso por otro usuario. Por favor, espere unos minutos antes de intentarlo nuevamente.";
                 await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
                     .WithContent(response)
                     .AsEphemeral(true));
@@ -99,6 +99,7 @@ namespace InkataBot.slash
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
                 int reintentos = 0;
+                String lookingAtPage = "the page list download (no interwiki searched)";
 
                 try
                 {
@@ -126,7 +127,6 @@ namespace InkataBot.slash
                         variablesPublicas.NoCancellationTokenUntilStart = false;
                         token.ThrowIfCancellationRequested();
                         await EnviarMensajeProcesoInterwiki(ctx, $"Analizando {nombreWiki[i]}...");
-                        
 
                         for (int j = 0; j < allPaginas[i].Count; j++)
                         {
@@ -139,6 +139,7 @@ namespace InkataBot.slash
                             {
                                 for (int k = 0; k < wikiLangs.Length; k++)
                                 {
+                                    lookingAtPage = (string)interwiki;
                                     if (interwiki.StartsWith($"{wikiLangs[k]}:") && i != k)
                                     {
                                         bool intentoExitoso = false;
@@ -148,6 +149,7 @@ namespace InkataBot.slash
                                             {
                                                 token.ThrowIfCancellationRequested();
                                                 Page targetPage = new Page(sites[k], interwiki.Replace($"{wikiLangs[k]}:", ""));
+                                                lookingAtPage = (string)interwiki + $" (searching {wikiLangs[k]})";
                                                 targetPage.Load();
 
                                                 // Verificar si la página existe
@@ -165,6 +167,7 @@ namespace InkataBot.slash
 
                                                         if (currentLangLink != correctLangLink)
                                                         {
+                                                            lookingAtPage = interwiki + $" (adding the interwiki on {wikiLangs[k]})";
                                                             // Reemplazar el interwiki incorrecto por el correcto
                                                             string newText = targetPage.text.Replace(currentLangLink, correctLangLink);
                                                             token.ThrowIfCancellationRequested();
@@ -173,6 +176,7 @@ namespace InkataBot.slash
                                                     }
                                                     else if (!targetPage.text.Contains(correctLangLink))
                                                     {
+                                                        lookingAtPage = interwiki + $" (adding the interwiki on {wikiLangs[k]})";
                                                         // Añadir el interwiki correcto si no está presente
                                                         string newText = targetPage.text + $"\n{correctLangLink}";
                                                         token.ThrowIfCancellationRequested();
@@ -182,14 +186,18 @@ namespace InkataBot.slash
                                                 intentoExitoso = true; // Si no hubo excepción, marca como exitoso
                                                 reintentos = 0; // Reiniciar los reintentos
                                             }
-                                            catch (Exception ex) when (ex is DotNetWikiBot.WikiBotException wikiEx && wikiEx.Message.Contains("Login failed") || ex is WebException webEx && webEx.Response is HttpWebResponse httpResponse && httpResponse.StatusCode == HttpStatusCode.InternalServerError)
+                                            catch (Exception ex) when (ex is WikiBotException wikiEx
+                                                && wikiEx.Message.Contains("Login failed")
+                                                || ex is WebException wEx && 
+                                                    (wEx.Message.Contains("The SSL connection could not be established")
+                                                    || wEx.Message.Contains("The operation has timed out")
+                                                    || wEx.Message.Contains("Received an unexpected EOF or 0 bytes from the transport stream")))
                                             {
                                                 reintentos++;
-                                                await EnviarMensajeProcesoInterwiki(ctx, $":warning: Error en el servidor. Reintentando... ({reintentos}/5)");
+                                                await EnviarMensajeProcesoInterwiki(ctx, $":warning: Error conectando con el servidor.\n:signal_strength: Reintentando... {reintentos}/5");
                                                 await Task.Delay(5000);
                                                 if (reintentos >= 5)
                                                 {
-                                                    await EnviarMensajeProcesoInterwiki(ctx, ":octagonal_sign: El proceso interwiki fue cancelado después de cinco reintentos fallidos.");
                                                     throw new OperationCanceledException(); // Cancelar todo el proceso
                                                 }
                                             }
@@ -200,21 +208,22 @@ namespace InkataBot.slash
                         }
                     }
 
-                    await EnviarMensajeProcesoInterwiki(ctx, ":airplane_arriving: El proceso de interwiki ha sido completado exitosamente.");
+                    await EnviarMensajeProcesoInterwiki(ctx, ":sparkles: El proceso interwiki ha sido completado exitosamente.");
                 }
                 catch (OperationCanceledException)
                 {
-                    await EnviarMensajeProcesoInterwiki(ctx, ":octagonal_sign: El proceso interwiki ha sido cancelado.");
+                    await EnviarMensajeProcesoInterwiki(ctx, ":knot: El proceso interwiki ha sido cancelado.");
                 }
                 catch (Exception ex)
                 {
-                    errores.error errorInstance = new errores.error(Program.Client);
-                    response = errorInstance.errorCommand(ctx.Member.Username, ex, "interwiki");
-                    await EnviarMensajeProcesoInterwiki(ctx, ":knot: Se ha producido un error desconocido; el proceso interwiki ha sido cancelado.");
+                    errores.Error errorInstance = new errores.Error(Program.Client);
+                    response = await errorInstance.errorCommand(ctx.Member.Username, ex, "interwiki", $"Error produced looking at {lookingAtPage}");
+                    await EnviarMensajeProcesoInterwiki(ctx, response);
+                    await EnviarMensajeProcesoInterwiki(ctx, ":knot: El proceso interwiki ha sido cancelado.");
                 }
                 finally
                 {
-                    variablesGlobales.variablesPublicas.interwikiProcesando = false;
+                    variablesPublicas.interwikiProcesando = false;
                     await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
                         .WithContent(response));
                     reintentos = 0;
@@ -225,7 +234,7 @@ namespace InkataBot.slash
 
         private async Task EnviarMensajeProcesoInterwiki(InteractionContext ctx, string mensaje)
         {
-            var canal = await ctx.Client.GetChannelAsync(variablesGlobales.variablesPublicas.mensajeBot);
+            var canal = await ctx.Client.GetChannelAsync(variablesPublicas.mensajeBot);
 
             if (canal != null)
             {
