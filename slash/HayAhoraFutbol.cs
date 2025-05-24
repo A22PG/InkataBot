@@ -17,34 +17,23 @@ namespace InkataBot.slash
         {
             try
             {
+                await ctx.DeferAsync();
+
                 var analysis = await RealizarAnalisisBloqueo();
 
-                bool isBloqued = analysis.Status == "blocked" ? true : false;
+                bool isBloqued = analysis.Status == "blocked";
 
-                if (isBloqued)
+                var embedBuilder = new DiscordEmbedBuilder()
                 {
-                    var embedBuilder = new DiscordEmbedBuilder()
-                    {
-                        Title = $":prohibited: Cloudflare bloqueado",
-                        Description = $"La familia *Inkipedia* se puede encontrar temporalmente bloqueada.",
-                        Color = new DiscordColor(221, 46, 68)
-                    };
+                    Title = isBloqued ? ":prohibited: Cloudflare bloqueado" : ":white_check_mark: No hay bloqueos",
+                    Description = isBloqued
+                        ? "La familia *Inkipedia* se puede encontrar temporalmente bloqueada."
+                        : "Puedes acceder a la familia *Inkipedia* con normalidad.",
+                    Color = isBloqued ? new DiscordColor(221, 46, 68) : new DiscordColor(119, 178, 85)
+                };
 
-                    await ctx.EditResponseAsync(new DiscordWebhookBuilder()
-                        .AddEmbed(embedBuilder));
-                }
-                else
-                {
-                    var embedBuilder = new DiscordEmbedBuilder()
-                    {
-                        Title = $":white_check_mark: No hay bloqueos",
-                        Description = $"Puedes acceder a la familia *Inkipedia* con normalidad.",
-                        Color = new DiscordColor(119, 178, 85)
-                    };
-
-                    await ctx.EditResponseAsync(new DiscordWebhookBuilder()
-                        .AddEmbed(embedBuilder));
-                }
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder()
+                    .AddEmbed(embedBuilder));
             }
             catch (Exception ex)
             {

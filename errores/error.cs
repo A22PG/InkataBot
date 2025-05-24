@@ -20,7 +20,7 @@ namespace InkataBot.errores
         {
             Random random = new Random();
             int aleat = random.Next(0, 99999);
-            string response = $":name_badge: Se ha producido un error. Por favor, contacte con un administrador y envíele el siguiente código de error: ``{aleat}``\n";
+            string response = $"Se ha producido un error en el comando {comando}.\n:name_badge: **Código de error:** ``{aleat}``\n";
             await EnviarMensajeDeError(aleat, username, comando, ex, infoAdicional);
             return response;
         }
