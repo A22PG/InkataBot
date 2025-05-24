@@ -16,7 +16,7 @@ namespace InkataBot.errores
             _client = client;
         }
 
-        public async Task<string> errorCommand(string username, Exception ex, string comando, String infoAdicional)
+        public async Task<string> errorCommand(string username, Exception ex, string comando, String infoAdicional = "")
         {
             Random random = new Random();
             int aleat = random.Next(0, 99999);

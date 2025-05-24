@@ -5,7 +5,6 @@ using DSharpPlus.EventArgs;
 using DSharpPlus.SlashCommands;
 using InkataBot.commands;
 using InkataBot.config;
-using InkataBot.services;
 using InkataBot.slash;
 using InkataBot.variablesGlobales;
 
@@ -51,6 +50,7 @@ namespace InkataBot
             Commands.RegisterCommands<comandosAdmin>();
 
             slashCommandsConfig.RegisterCommands<Interwiki>();
+            slashCommandsConfig.RegisterCommands<HayAhoraFutbol>();
 
             await Client.ConnectAsync();
             await Task.Delay(-1);
